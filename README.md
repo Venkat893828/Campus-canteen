@@ -1,4 +1,4 @@
-# Campus Canteen Application
+# Campus Canteen App
 
 A full-stack web application for a campus canteen ordering system built with React, Node.js, Express, and MongoDB.
 
