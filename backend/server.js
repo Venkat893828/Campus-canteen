@@ -11,6 +11,7 @@ app.use(express.json());
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/orders', require('./routes/order'));
+app.use('/api', require('./routes/email'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {

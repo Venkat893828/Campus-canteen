@@ -1,111 +1,248 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 
-function Order({ currentUser }) {
-  const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+function Order() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [orderDetails, setOrderDetails] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    address: '',
+    paymentMethod: 'cash'
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [orderSuccess, setOrderSuccess] = useState(false);
 
-  useEffect(() => {
-    fetchOrders();
-  }, []);
+  // Get items from location state (passed from Menu component)
+  const selectedItems = location.state?.selectedItems || [];
+  const totalPrice = selectedItems.reduce((total, item) => total + item.price, 0);
 
-  const fetchOrders = async () => {
-    try {
-      const res = await axios.get('http://localhost:5002/api/orders');
-      setOrders(res.data);
-      setLoading(false);
-    } catch (err) {
-      console.error('Error fetching orders:', err);
-      setError('Failed to fetch orders');
-      setLoading(false);
-    }
+  const handleInputChange = (e) => {
+    setOrderDetails({
+      ...orderDetails,
+      [e.target.name]: e.target.value
+    });
   };
 
-  const placeOrder = async () => {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
     try {
       const orderData = {
-        items: ['Veg Burger', 'French Fries', 'Coke'],
-        totalAmount: 240,
-        status: 'pending',
-        userId: currentUser?.id || 'user123'
+        items: selectedItems,
+        totalPrice,
+        customerDetails: orderDetails,
+        orderDate: new Date().toISOString()
       };
 
-      const res = await axios.post('http://localhost:5002/api/orders', orderData);
-      console.log('Order placed:', res.data);
-      
-      // Refresh orders list
-      fetchOrders();
-      
-      // Show success message
-      alert('Order placed successfully!');
-    } catch (err) {
-      console.error('Error placing order:', err);
-      setError('Failed to place order');
+      // Generate a simple order ID
+      const orderId = 'ORD' + Date.now();
+
+      // Send order to backend
+      const response = await fetch('http://localhost:5002/api/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(orderData),
+      });
+
+      if (response.ok) {
+        // Send email confirmation
+        const emailResponse = await sendEmailConfirmation(orderDetails.email, orderData, orderId);
+        
+        if (emailResponse.success) {
+          setOrderSuccess(true);
+          setTimeout(() => {
+            navigate('/orders');
+          }, 3000);
+        } else {
+          // Order placed but email failed
+          alert('Order placed successfully! Email confirmation failed.');
+          setTimeout(() => {
+            navigate('/orders');
+          }, 2000);
+        }
+      } else {
+        throw new Error('Failed to place order');
+      }
+    } catch (error) {
+      console.error('Error placing order:', error);
+      alert('Failed to place order. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  if (loading) {
+  const sendEmailConfirmation = async (email, orderData, orderId) => {
+    try {
+      const emailData = {
+        to: email,
+        subject: `Order Confirmation - Order #${orderId}`,
+        orderId,
+        items: orderData.items,
+        totalPrice: orderData.totalPrice,
+        customerDetails: orderData.customerDetails
+      };
+
+      const response = await fetch('http://localhost:5002/api/send-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(emailData),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Email sent successfully:', result);
+        return { success: true, data: result };
+      } else {
+        throw new Error('Email sending failed');
+      }
+    } catch (error) {
+      console.error('Error sending email:', error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  if (selectedItems.length === 0) {
     return (
       <div className="order-container">
-        <div className="loading-spinner"></div>
-        <p>Loading orders...</p>
+        <div className="auth-container">
+          <h2>No Items Selected</h2>
+          <p>Please go back to the menu and select items to order.</p>
+          <button onClick={() => navigate('/menu')} className="nav-button">
+            Back to Menu
+          </button>
+        </div>
       </div>
     );
   }
 
-  if (error) {
+  if (orderSuccess) {
     return (
       <div className="order-container">
-        <div className="error">{error}</div>
-        <button onClick={fetchOrders}>Retry</button>
+        <div className="order-success">
+          <h2>✅ Order Placed Successfully!</h2>
+          <p>Your order has been placed and a confirmation email has been sent to your email address.</p>
+          <p>You will be redirected to your orders page shortly...</p>
+          <div className="loading-spinner"></div>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="order-container">
-      <h1>🛒 Place Order</h1>
-      
-      <div className="order-form">
-        <h3>Sample Order</h3>
-        <p>This is a sample order for demonstration purposes.</p>
+      <div className="auth-container">
+        <h2>📋 Place Your Order</h2>
         
-        <div className="order-items">
-          <h4>Order Items:</h4>
-          <ul>
-            <li>Veg Burger - ₹120</li>
-            <li>French Fries - ₹80</li>
-            <li>Coke - ₹40</li>
-          </ul>
-          <p><strong>Total: ₹240</strong></p>
+        <div className="order-summary">
+          <h3>Order Summary</h3>
+          <div className="order-items">
+            {selectedItems.map(item => (
+              <div key={item.id} className="order-item-summary">
+                <img src={item.image} alt={item.name} className="order-item-image" />
+                <div className="order-item-details">
+                  <span className="order-item-name">{item.name}</span>
+                  <span className="order-item-price">₹{item.price}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="order-total">
+            <strong>Total: ₹{totalPrice}</strong>
+          </div>
         </div>
 
-        <button onClick={placeOrder} className="place-order-btn">
-          Place Order
-        </button>
-      </div>
+        <form onSubmit={handleSubmit} className="order-form">
+          <div className="form-group">
+            <label htmlFor="name">Full Name *</label>
+            <input
+              type="text"
+              id="name"
+              name="name"
+              value={orderDetails.name}
+              onChange={handleInputChange}
+              required
+              placeholder="Enter your full name"
+            />
+          </div>
 
-      {orders.length > 0 && (
-        <div className="orders-section">
-          <h3>Recent Orders</h3>
-          {orders.map(order => (
-            <div key={order._id} className="order-item">
-              <p><strong>Order ID:</strong> {order._id}</p>
-              <p><strong>Items:</strong> {order.items.join(', ')}</p>
-              <p><strong>Status:</strong> <span className={`status-${order.status}`}>{order.status}</span></p>
-              <p><strong>Total:</strong> ₹{order.totalAmount}</p>
-            </div>
-          ))}
+          <div className="form-group">
+            <label htmlFor="email">Email Address *</label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              value={orderDetails.email}
+              onChange={handleInputChange}
+              required
+              placeholder="Enter your email address"
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="phone">Phone Number *</label>
+            <input
+              type="tel"
+              id="phone"
+              name="phone"
+              value={orderDetails.phone}
+              onChange={handleInputChange}
+              required
+              placeholder="Enter your phone number"
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="address">Delivery Address *</label>
+            <textarea
+              id="address"
+              name="address"
+              value={orderDetails.address}
+              onChange={handleInputChange}
+              required
+              placeholder="Enter your delivery address"
+              rows="3"
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="paymentMethod">Payment Method *</label>
+            <select
+              id="paymentMethod"
+              name="paymentMethod"
+              value={orderDetails.paymentMethod}
+              onChange={handleInputChange}
+              required
+            >
+              <option value="cash">Cash on Delivery</option>
+              <option value="card">Card Payment</option>
+              <option value="upi">UPI Payment</option>
+            </select>
+          </div>
+
+          <button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? (
+              <>
+                <span className="loading-spinner"></span>
+                Placing Order...
+              </>
+            ) : (
+              'Place Order'
+            )}
+          </button>
+        </form>
+
+        <div className="navigation">
+          <button onClick={() => navigate('/menu')} className="nav-button">
+            Back to Menu
+          </button>
         </div>
-      )}
-
-      <div className="navigation">
-        <Link to="/" className="nav-button">🏠 Home</Link>
-        <Link to="/menu" className="nav-button">📋 Menu</Link>
-        <Link to="/orders" className="nav-button">📦 Orders</Link>
       </div>
     </div>
   );

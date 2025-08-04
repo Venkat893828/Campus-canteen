@@ -28,27 +28,28 @@ function App() {
     <div className="App">
       <nav className="navbar">
         <div className="nav-container">
+          {currentUser && (
+            <div className="nav-user">
+              <span className="user-avatar">👤</span>
+              <div className="user-info">
+                <span className="user-name">Welcome, {currentUser.username}!</span>
+                <span className="user-role">STUDENT</span>
+              </div>
+            </div>
+          )}
+          
           <div className="nav-brand">
             <span className="nav-icon">🍽️</span>
             <h1>Campus Canteen</h1>
-            <span className="nav-subtitle">University Food Services</span>
+            <span className="nav-subtitle">UNIVERSITY FOOD SERVICES</span>
           </div>
           
           {currentUser && (
-            <div className="nav-menu">
-              <div className="nav-user">
-                <span className="user-avatar">👤</span>
-                <div className="user-info">
-                  <span className="user-name">Welcome, {currentUser.username}!</span>
-                  <span className="user-role">Student</span>
-                </div>
-              </div>
-              <div className="nav-actions">
-                <button className="nav-btn" onClick={handleLogout}>
-                  <span className="btn-icon">🚪</span>
-                  Logout
-                </button>
-              </div>
+            <div className="nav-actions">
+              <button className="nav-btn" onClick={handleLogout}>
+                <span className="btn-icon">🚪</span>
+                LOGOUT
+              </button>
             </div>
           )}
         </div>
