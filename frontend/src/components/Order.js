@@ -41,7 +41,7 @@ function Order() {
       const orderId = 'ORD' + Date.now();
 
       // Send order to backend
-      const response = await fetch('http://localhost:5002/api/orders', {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5002'}/api/orders`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -87,7 +87,7 @@ function Order() {
         customerDetails: orderData.customerDetails
       };
 
-      const response = await fetch('http://localhost:5002/api/send-email', {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5002'}/api/send-email`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
